@@ -1,0 +1,12 @@
+export nodeModules
+
+fs install(fs src) {
+	image "node:alpine" with option {
+		resolve
+	}
+	run "npm install" with option {
+		dir "/src"
+		mount src "/src"
+		mount fs { scratch; } "/src/node_modules" as nodeModules
+	}
+}

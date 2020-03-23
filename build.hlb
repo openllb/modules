@@ -1,0 +1,16 @@
+fs docker() {
+	lib "./docker"
+}
+
+fs npm() {
+	lib "./npm"
+}
+
+fs lib(string dir) {
+	scratch
+	copy fs {
+		local dir with option {
+			includePatterns "*.hlb"
+		}
+	} "/" "/"
+}
