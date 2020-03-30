@@ -8,7 +8,7 @@ This repository aims to solve the same issue as the [Docker Official Images](htt
 1. Bootstrap the ecosystem with high quality modules
 2. Prescribe best practices for HLB
 
-Perhaps in the future, we can work with the upstream project (or with the blessing of the upstream project) to create HLB modules that are true to the upstream project's vision for how their project is intended to be consumed.
+Perhaps in the future, we can work with the upstream project to produce these modules, but for now we will try our best to consume the upstream projects the way they intended.
 
 ## Contributing
 
