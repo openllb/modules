@@ -1,9 +1,11 @@
 fs docker() {
 	lib "./docker"
+	dockerPush "openllb/docker.hlb"
 }
 
 fs npm() {
 	lib "./npm"
+	dockerPush "openllb/npm.hlb"
 }
 
 fs lib(string dir) {
