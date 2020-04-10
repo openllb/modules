@@ -6,10 +6,8 @@ export build
 # @params dockerfile a filesystem containing the Dockerfile.
 # @return The built filesystem for the last Dockerfile stage.
 fs build(fs context, fs dockerfile) {
-	generate fs {
-		image "docker/dockerfile-upstream:1.1.6-rc1" with option { resolve; }
-	} with option {
-		frontendInput "context" context
-		frontendInput "dockerfile" dockerfile
+	frontend "docker/dockerfile-upstream:1.1.6-rc1" with option {
+		input "context" context
+		input "dockerfile" dockerfile
 	}
 }
