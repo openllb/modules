@@ -1,3 +1,7 @@
+group default() {
+	parallel docker npm
+}
+
 fs docker() {
 	lib "./docker"
 	dockerPush "openllb/docker.hlb"
