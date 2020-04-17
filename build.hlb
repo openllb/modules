@@ -1,5 +1,5 @@
 group default() {
-	parallel docker npm
+	parallel docker npm go
 }
 
 fs docker() {
@@ -10,6 +10,11 @@ fs docker() {
 fs npm() {
 	lib "./npm"
 	dockerPush "openllb/npm.hlb"
+}
+
+fs go() {
+	lib "./go"
+	dockerPush "openllb/go.hlb"
 }
 
 fs lib(string dir) {

@@ -1,0 +1,56 @@
+export build
+
+export base
+
+export buildBinary
+
+export mountCache
+
+# Builds a static go binary using the default go base.
+#
+# @param src a filesystem containing go source files.
+# @param name the name of the binary to output as.
+# @param package a relative path to the package to build.
+# @return a filesystem containing only the built binary.
+fs build(fs src, string name, string package) {
+	base
+	buildBinary src name package
+}
+
+# A base golang alpine image.
+#
+# @return a base golang alpine image.
+fs base() {
+	image "golang:1.13.10-alpine"
+	run "apk add -U git gcc libc-dev"
+}
+
+fs runBuild(fs src, string name, string package) {
+	run string {
+		format "/usr/local/go/bin/go build -o /out/binary -ldflags \"-linkmode external -extldflags -static\" -a %s" package
+	} with option {
+		dir "/build"
+		mountCache
+		mount src "/build" with readonly
+
+		# Builds a static go binary. Apply this function against a base with golang.
+		#
+		# @param src a filesystem containing go source files.
+		# @param name the name of the binary to output as.
+		# @param package a relative path to the package to build.
+		# @return a filesystem containing only the built binary.
+		mount scratch "/out" as buildBinary
+	}
+}
+
+# Cache mounts for go module based projects on alpine.
+#
+# @return options to cache go compiler caches.
+option::run mountCache() {
+	mount scratch "/root/.cache/go-build" with option {
+		cache "go-build" "shared"
+	}
+	mount scratch "/go/pkg/mod" with option {
+		cache "go-mod" "shared"
+	}
+}
