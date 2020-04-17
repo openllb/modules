@@ -1,12 +1,12 @@
 export build
 
-# Builds a Dockefile for a given context.
+# Builds a Dockerfile for a given context.
 #
 # @params context a filesystem to use as the context.
 # @params dockerfile a filesystem containing the Dockerfile.
 # @return The built filesystem for the last Dockerfile stage.
 fs build(fs context, fs dockerfile) {
-	frontend "docker/dockerfile-upstream:1.1.6-rc1" with option {
+	frontend "docker/dockerfile-upstream:1.1.7" with option {
 		input "context" context
 		input "dockerfile" dockerfile
 	}
