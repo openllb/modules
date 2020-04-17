@@ -29,16 +29,16 @@ fs runBuild(fs src, string name, string package) {
 	run string {
 		format "/usr/local/go/bin/go build -o /out/binary -ldflags \"-linkmode external -extldflags -static\" -a %s" package
 	} with option {
-        	dir "/build"
+		dir "/build"
 		mountCache
-        	mount src "/build" with readonly
+		mount src "/build" with readonly
 
-                # Builds a static go binary. Apply this function against a base with golang.
-                #
-                # @param src a filesystem containing go source files.
-                # @param name the name of the binary to output as.
-                # @param package a relative path to the package to build.
-                # @return a filesystem containing only the built binary.
+		# Builds a static go binary. Apply this function against a base with golang.
+		#
+		# @param src a filesystem containing go source files.
+		# @param name the name of the binary to output as.
+		# @param package a relative path to the package to build.
+		# @return a filesystem containing only the built binary.
 		mount scratch "/out" as buildBinary
 	}
 }
