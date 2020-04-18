@@ -27,7 +27,7 @@ fs base() {
 
 fs runBuild(fs src, string name, string package) {
 	run string {
-		format "/usr/local/go/bin/go build -o /out/binary -ldflags \"-linkmode external -extldflags -static\" -a %s" package
+		format "/usr/local/go/bin/go build -o /out/%s -ldflags \"-linkmode external -extldflags -static\" -a %s" name package
 	} with option {
 		dir "/build"
 		mountCache
