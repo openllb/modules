@@ -11,10 +11,11 @@ export mountCache
 # @param src a filesystem containing go source files.
 # @param name the name of the binary to output as.
 # @param package a relative path to the package to build.
+# @param flags additional flags that can be passed to go build.
 # @return a filesystem containing only the built binary.
-fs build(fs src, string name, string package) {
+fs build(fs src, string name, string package, string flags) {
 	base
-	buildBinary src name package
+	buildBinary src name package flags
 }
 
 # A base golang alpine image.
@@ -25,9 +26,9 @@ fs base() {
 	run "apk add -U git gcc libc-dev"
 }
 
-fs runBuild(fs src, string name, string package) {
+fs runBuild(fs src, string name, string package, string flags) {
 	run string {
-		format "/usr/local/go/bin/go build -o /out/%s -ldflags \"-linkmode external -extldflags -static\" -a %s" name package
+		format "/usr/local/go/bin/go build -o /out/%s -ldflags \"-linkmode external -extldflags -static\" -a %s %s" name flags package
 	} with option {
 		dir "/build"
 		mountCache
@@ -38,6 +39,7 @@ fs runBuild(fs src, string name, string package) {
 		# @param src a filesystem containing go source files.
 		# @param name the name of the binary to output as.
 		# @param package a relative path to the package to build.
+		# @param flags additional flags that can be passed to go build.
 		# @return a filesystem containing only the built binary.
 		mount scratch "/out" as buildBinary
 	}
