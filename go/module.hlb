@@ -1,53 +1,161 @@
+export buildAll
+export buildCommon
+export buildUnix
 export build
 
-export base
-
-export buildBinary
-
-export mountCache
-
-# Builds a static go binary using the default go base.
-#
-# @param src a filesystem containing go source files.
-# @param name the name of the binary to output as.
-# @param package a relative path to the package to build.
-# @param flags additional flags that can be passed to go build.
-# @return a filesystem containing only the built binary.
-fs build(fs src, string name, string package, string flags) {
-	base
-	buildBinary src name package flags
-}
-
-# A base golang alpine image.
-#
-# @return a base golang alpine image.
-fs base() {
-	image "golang:1.13.10-alpine"
-	run "apk add -U git gcc libc-dev"
-}
-
-fs runBuild(fs src, string name, string package, string flags) {
-	run string {
-		format "/usr/local/go/bin/go build -o /out/%s -ldflags \"-linkmode external -extldflags -static\" -a %s %s" name flags package
-	} with option {
-		dir "/build"
-		mountCache
-		mount src "/build" with readonly
-
-		# Builds a static go binary. Apply this function against a base with golang.
-		#
-		# @param src a filesystem containing go source files.
-		# @param name the name of the binary to output as.
-		# @param package a relative path to the package to build.
-		# @param flags additional flags that can be passed to go build.
-		# @return a filesystem containing only the built binary.
-		mount scratch "/out" as buildBinary
+fs buildDownload(fs src, string package, string platform, string arch, variadic option::template args) {
+	build src package option::template {
+		args
+		stringField "platform" platform
+		stringField "arch" arch
+	}
+	download string {
+		template "{{.cwd}}/{{.buildDir}}/{{.platform}}-{{.arch}}" with option {
+			defaultArgs
+			args
+			stringField "cwd" localCwd
+			stringField "platform" platform
+			stringField "arch" arch
+		}
 	}
 }
 
-# Cache mounts for go module based projects on alpine.
+# Build a go binary for all known platforms in parallel and download
+# the binary to a local ./build directory.
 #
-# @return options to cache go compiler caches.
+# @param src a filesystem containing go source files.
+# @param package a relative path for the package to build.
+# @param args arguments to templates used for the go build command
+# @return a solve requiest to build and download in parallel
+group buildAll(fs src, string package, variadic option::template args) {
+	parallel group {
+		buildCommon src package args
+	} fs {
+		buildDownload src package "linux" "386"  args
+	} fs {
+		buildDownload src package "linux" "arm5"  args
+	} fs {
+		buildDownload src package "linux" "arm6"  args
+	} fs {
+		buildDownload src package "linux" "arm7" args
+	} fs {
+		buildDownload src package "linux" "ppc64" args
+	} fs {
+		buildDownload src package "linux" "mips" args
+	} fs {
+		buildDownload src package "linux" "s390" args
+	} fs {
+		buildDownload src package "windows" "386" args
+	} fs {
+		buildDownload src package "darwin" "386" args
+	}
+}
+
+# Build a go binary for common platforms (windows, linux, darwin) in parallel
+# and download the binary to a local ./build directory.
+#
+# @param src a filesystem containing go source files.
+# @param package a relative path for the package to build.
+# @param args arguments to templates used for the go build command
+# @return a solve requiest to build and download in parallel
+group buildCommon(fs src, string package, variadic option::template args) {
+	parallel group {
+		buildUnix src package args
+	} fs {
+		buildDownload src package "windows" "amd64" args
+	}
+}
+
+# Build a go binary for unix platforms (linux, darwin) in parallel
+# and download the binary to a local ./build directory.
+#
+# @param src a filesystem containing go source files.
+# @param package a relative path for the package to build.
+# @param args arguments to templates used for the go build command
+# @return a solve requiest to build and download in parallel
+group buildUnix(fs src, string package, variadic option::template args) {
+	parallel fs {
+		buildDownload src package "linux" "amd64" args
+ 	} fs {
+		buildDownload src package "darwin" "amd64" args
+	}
+}
+
+string builderImage(variadic option::template args) {
+	template <<~END
+	{{- if eq .platform "linux" -}}
+		{{- if (or (eq .arch "amd64") (eq .arch "386")) -}}
+			{{.base}}:{{.goVersion}}-main
+		{{- else if (or (eq .arch "arm5") (eq .arch "arm6") (eq .arch "arm7") (eq .arch "arm64")) -}}
+			{{.base}}:{{.goVersion}}-arm
+		{{- else if (or (eq .arch "ppc64") (eq .arch "ppc64le")) -}}
+			{{.base}}:{{.goVersion}}-ppc
+		{{- else if (or (eq .arch "mips") (eq .arch "mipsle") (eq .arch "mipls64") (eq .arch "mips64le")) -}}
+			{{.base}}:{{.goVersion}}-mips
+		{{- else -}}
+			{{.base}}:{{.goVersion}}-{{.arch}}
+		{{- end -}}
+	{{- else if eq .platform "windows" -}}
+		{{.base}}:{{.goVersion}}-main
+	{{- else if eq .platform "darwin" -}}
+		{{.base}}:{{.goVersion}}-darwin
+	{{- end -}}
+	END with option {
+		stringField "base" "docker.elastic.co/beats-dev/golang-crossbuild"
+		defaultArgs
+		args
+	}
+}
+
+option::template defaultArgs() {
+	stringField "goVersion" "1.14.2"
+	stringField "platform" localOs
+	stringField "arch" localArch
+	stringField "goBuildFlags" ""
+	stringField "binaryName" ""
+	stringField "buildDir" "build"
+}
+
+string goBuildCommand(string package, variadic option::template args) {
+	template <<~EOM
+		go build {{.goBuildFlags}} -o /out/{{.binaryName}} {{.package}}
+	EOM with option {
+		defaultArgs
+		args
+		stringField "package" package
+	}
+}
+
+fs _runBuild(fs input, string package, variadic option::template args) {
+	image string {
+		builderImage args
+	} with resolve
+	run string {
+		template "/crossbuild --build-cmd {{printf \"%q\" .goBuildCommand}} -p '{{.platform}}/{{.arch}}'" with option {
+			defaultArgs
+			stringField "goBuildCommand" string {
+				goBuildCommand package args
+			}
+			args
+		}
+	} with option {
+		env "GOPATH" "/go"
+		env "CGO_ENABLED" "1"
+		env "GO111MODULE" "on"
+		dir "/go/src" 
+		mount input "/go/src" with readonly
+
+		# Builds a go binary.
+		#
+		# @param src a filesystem containing go source files.
+		# @param package a relative path for the package to build.
+		# @param args arguments to templates used for the go build command
+		# @return a filesystem containing only the built binary.
+		mount scratch "/out" as build
+		mountCache
+	}
+}
+
 option::run mountCache() {
 	mount scratch "/root/.cache/go-build" with option {
 		cache "go-build" "shared"
