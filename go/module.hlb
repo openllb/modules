@@ -2,6 +2,7 @@ export buildAll
 export buildCommon
 export buildUnix
 export build
+export lint
 
 fs buildDownload(fs src, string package, string platform, string arch, variadic option::template args) {
 	build src package option::template {
@@ -25,7 +26,7 @@ fs buildDownload(fs src, string package, string platform, string arch, variadic 
 #
 # @param src a filesystem containing go source files.
 # @param package a relative path for the package to build.
-# @param args arguments to templates used for the go build command
+# @param args optional arguments to templates used for the go build command
 # @return a solve requiest to build and download in parallel
 group buildAll(fs src, string package, variadic option::template args) {
 	parallel group {
@@ -56,7 +57,7 @@ group buildAll(fs src, string package, variadic option::template args) {
 #
 # @param src a filesystem containing go source files.
 # @param package a relative path for the package to build.
-# @param args arguments to templates used for the go build command
+# @param args optional arguments to templates used for the go build command
 # @return a solve requiest to build and download in parallel
 group buildCommon(fs src, string package, variadic option::template args) {
 	parallel group {
@@ -71,7 +72,7 @@ group buildCommon(fs src, string package, variadic option::template args) {
 #
 # @param src a filesystem containing go source files.
 # @param package a relative path for the package to build.
-# @param args arguments to templates used for the go build command
+# @param args optional arguments to templates used for the go build command
 # @return a solve requiest to build and download in parallel
 group buildUnix(fs src, string package, variadic option::template args) {
 	parallel fs {
@@ -114,6 +115,7 @@ option::template defaultArgs() {
 	stringField "goBuildFlags" ""
 	stringField "binaryName" ""
 	stringField "buildDir" "build"
+	stringField "golangciLintVersion" "latest"
 }
 
 string goBuildCommand(string package, variadic option::template args) {
@@ -139,21 +141,44 @@ fs _runBuild(fs input, string package, variadic option::template args) {
 			args
 		}
 	} with option {
-		env "GOPATH" "/go"
-		env "CGO_ENABLED" "1"
-		env "GO111MODULE" "on"
-		dir "/go/src" 
-		mount input "/go/src" with readonly
-
+		commonEnv input
 		# Builds a go binary.
 		#
-		# @param src a filesystem containing go source files.
+		# @param input a filesystem containing go source files.
 		# @param package a relative path for the package to build.
-		# @param args arguments to templates used for the go build command
+		# @param args optional arguments to templates used for the go build command
 		# @return a filesystem containing only the built binary.
 		mount scratch "/out" as build
-		mountCache
 	}
+}
+
+# Runs Go linter (golangci-lint run) against provided source input.
+#
+# @param input a filesystem containing go source files.
+# @param args optional arguments to templates used for the go build command
+# @return a filesystem containing only the built binary.
+fs lint(fs input, variadic option::template args) {
+	image string {
+		builderImage args
+	} with resolve
+	run string {
+		template "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /go/bin {{.golangciLintVersion}}" with option {
+			defaultArgs
+			args
+		}
+	}
+	run "/go/bin/golangci-lint run" with option {
+		commonEnv input
+	}
+}
+
+option::run commonEnv(fs input) {
+	env "GOPATH" "/go"
+	env "CGO_ENABLED" "1"
+	env "GO111MODULE" "on"
+	dir "/go/src" 
+	mount input "/go/src" with readonly
+	mountCache
 }
 
 option::run mountCache() {
