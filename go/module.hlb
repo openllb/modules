@@ -10,7 +10,13 @@ fs buildDownload(fs src, string package, string platform, string arch, variadic 
 		stringField "arch" arch
 	}
 	download string {
-		format "%s/build/%s-%s/." localCwd platform arch
+		template "{{.cwd}}/{{.buildDir}}/{{.platform}}-{{.arch}}" with option {
+			defaultArgs
+			args
+			stringField "cwd" localCwd
+			stringField "platform" platform
+			stringField "arch" arch
+		}
 	}
 }
 
@@ -107,6 +113,7 @@ option::template defaultArgs() {
 	stringField "arch" localArch
 	stringField "goBuildFlags" ""
 	stringField "binaryName" ""
+	stringField "buildDir" "build"
 }
 
 string goBuildCommand(string package, variadic option::template args) {
