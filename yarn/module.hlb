@@ -1,0 +1,100 @@
+export bootstrap
+export nodeModules
+export lock
+export localPackageJson
+
+# Install the provided version of Yarn into parent scoped fs.  If version is an
+# empty string, the latest release of Yarn will be installed.
+# Example:
+#
+# import yarn from fs {
+# 	image "openllb/yarn.hlb"
+# }
+# fs myYarnBase() {
+# 	image "node:alpine"	
+# 	yarn.bootstrap "^1.22"
+# }
+#
+# @param version the Node release version to be installed, latest if empty.
+# @return an fs with Node installed
+fs bootstrap(string version) {
+	run string {
+		format "npm install -g yarn@%s" version
+	} with mountCache
+}
+
+option::run mountCache() {
+	mount scratch "/usr/local/share/.cache" with option {
+		cache "hlb/yarnCache" "shared"
+	}
+}
+
+fs _runInstall(fs base, fs packageJsonSource) {
+	base
+	run "yarn install --frozen-lockfile" with option {
+		dir "/src"
+		mount packageJsonSource "/src" with readonly
+		# Build node_modules directory
+		# Example:
+		#
+		# import yarn from fs {
+		# 	image "openllb/yarn.hlb"
+		# }
+		# fs yarnBase() {
+		# 	image "node:alpine"	
+		# 	yarn.bootstrap "^1.22"	
+		# }
+		# fs myNodeModules() {
+		# 	yarn.nodeModules yarnBase yarn.localPackageJson
+		#   download "./node_modules"
+		# }
+		#
+		# @param base the base fs to run yarn install on
+		# @param packageJsonSource the fs containing the package.json and yarn.lock files
+		# @return an fs containint the node_modules generated yarn install
+		mount scratch "/src/node_modules" as nodeModules
+		mountCache
+	}
+}
+
+fs _runUpdateLock(fs base) {
+	base
+	run "yarn install" with option {
+		dir "/src"
+		mount localPackageJson "/src" as lockOutput
+		mount scratch "/src/node_modules"
+		mountCache
+	}
+}
+
+# Update yarn.lock file and write it to your local workspace
+# Example:
+#
+# import yarn from fs {
+# 	image "openllb/yarn.hlb"
+# }
+# fs yarnBase() {
+# 	image "node:alpine"	
+# 	yarn.bootstrap "^1.22"	
+# }
+# fs lock() {
+# 	yarn.lock yarnBase
+# }
+#
+# @param base the base fs to run yarn install on
+# @return the base fs as modified by yarn install
+fs lock(fs base) {
+	lockOutput base
+	download localCwd
+}
+
+# an fs that provides just package.json and yarn.lock file from the local client's working directory.
+#
+# @return an fs with just package.json and yarn.lock
+fs localPackageJson() {
+	local localCwd with option {
+		includePatterns "package.json" "yarn.lock"
+	}
+}
+
+ 

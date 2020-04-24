@@ -1,0 +1,45 @@
+export bootstrap
+
+fs resolvedVersion(string semver) {
+	http string {
+		format "https://semver.io/node/resolve/%s" semver
+	} with option {
+		filename "version"
+	}
+}
+
+# Install the provided version of Node into parent scoped fs.  If version is an
+# empty string, the latest release of Node will be installed.
+# Example:
+#
+# import node from {
+# 	image "openllb/node.hlb"
+# }
+# fs myNodeBase() {
+# 	image "busybox"	
+# 	node.bootstrap "^12"
+# }
+#
+# @param version the Node release version to be installed, latest if empty.
+# @return an fs with Node installed
+fs bootstrap(string version) {
+	run <<END
+	url="https://nodejs.org/dist/v$(cat /resolved/version)/node-v$(cat /resolved/version)-linux-x64.tar.gz"
+	if ! command -v tar >/dev/null 2>&1; then
+		echo "ERROR: Missing tar command" >&2
+		exit 1
+	fi
+	if command -v curl >/dev/null 2>&1; then
+		curl -qsfSL "$url" -o - | tar xzf - -C /usr --strip-components 1
+	elif command -v wget >/dev/null 2>&1; then
+		wget -q "$url" -O - | tar xzf - -C /usr --strip-components 1
+	else
+		echo "ERROR: Missing curl or wget command" >&2
+		exit 1
+	fi
+	END with option {
+		mount fs {
+			resolvedVersion version
+		} "/resolved"
+	}
+}

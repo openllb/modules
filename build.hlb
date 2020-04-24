@@ -17,6 +17,16 @@ fs go() {
 	dockerPush "openllb/go.hlb"
 }
 
+fs node() {
+	lib "./node"
+	dockerPush "openllb/node.hlb"
+}
+
+fs yarn() {
+	lib "./yarn"
+	dockerPush "openllb/yarn.hlb"
+}
+
 fs lib(string dir) {
 	scratch
 	copy fs {
