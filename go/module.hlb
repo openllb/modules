@@ -116,11 +116,12 @@ option::template defaultArgs() {
 	stringField "binaryName" ""
 	stringField "buildDir" "build"
 	stringField "golangciLintVersion" "latest"
+	stringField "cgoEnabled" "1"
 }
 
 string goBuildCommand(string package, variadic option::template args) {
 	template <<~EOM
-		go build {{.goBuildFlags}} -o /out/{{.binaryName}} {{.package}}
+		CGO_ENABLED={{.cgoEnabled}} go build {{.goBuildFlags}} -o /out/{{.binaryName}} {{.package}}
 	EOM with option {
 		defaultArgs
 		args
