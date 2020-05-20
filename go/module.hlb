@@ -1,19 +1,27 @@
 export buildAll
+export buildAllWithOptions
 export buildCommon
+export buildCommonWithOptions
 export buildUnix
+export buildUnixWithOptions
 export build
+export buildWithOptions
 export lint
+export lintWithOptions
+export base
+export mountCwd
+export mountCache
 
-fs buildDownload(fs src, string package, string platform, string arch, variadic option::template args) {
-	build src package option::template {
-		args
+fs buildDownloadWithOptions(fs src, string package, string platform, string arch, option::template tmplOpts, option::run runOpts) {
+	buildWithOptions src package option::template {
+		tmplOpts
 		stringField "platform" platform
 		stringField "arch" arch
-	}
+	} runOpts
 	download string {
 		template "{{.cwd}}/{{.buildDir}}/{{.platform}}-{{.arch}}" with option {
-			defaultArgs
-			args
+			defaultTmplOpts
+			tmplOpts
 			stringField "cwd" localCwd
 			stringField "platform" platform
 			stringField "arch" arch
@@ -21,34 +29,65 @@ fs buildDownload(fs src, string package, string platform, string arch, variadic 
 	}
 }
 
+fs buildDownload(fs src, string package, string platform, string arch) {
+	buildDownloadWithOptions src package platform arch option::template{} option::run{}
+}
+
 # Build a go binary for all known platforms in parallel and download
 # the binary to a local ./build directory.
 #
 # @param src a filesystem containing go source files.
 # @param package a relative path for the package to build.
-# @param args optional arguments to templates used for the go build command
+# @param tmplOpts template options used for the go build command
+# @param runOpts run options use for the go build command
 # @return a solve requiest to build and download in parallel
-group buildAll(fs src, string package, variadic option::template args) {
+group buildAllWithOptions(fs src, string package, option::template tmplOpts, option::run runOpts) {
 	parallel group {
-		buildCommon src package args
+		buildCommonWithOptions src package tmplOpts runOpts
 	} fs {
-		buildDownload src package "linux" "386"  args
+		buildDownloadWithOptions src package "linux" "386"  tmplOpts runOpts
 	} fs {
-		buildDownload src package "linux" "arm5"  args
+		buildDownloadWithOptions src package "linux" "arm5"  tmplOpts runOpts
 	} fs {
-		buildDownload src package "linux" "arm6"  args
+		buildDownloadWithOptions src package "linux" "arm6"  tmplOpts runOpts
 	} fs {
-		buildDownload src package "linux" "arm7" args
+		buildDownloadWithOptions src package "linux" "arm7" tmplOpts runOpts
 	} fs {
-		buildDownload src package "linux" "ppc64" args
+		buildDownloadWithOptions src package "linux" "ppc64" tmplOpts runOpts
 	} fs {
-		buildDownload src package "linux" "mips" args
+		buildDownloadWithOptions src package "linux" "mips" tmplOpts runOpts
 	} fs {
-		buildDownload src package "linux" "s390" args
+		buildDownloadWithOptions src package "linux" "s390" tmplOpts runOpts
 	} fs {
-		buildDownload src package "windows" "386" args
+		buildDownloadWithOptions src package "windows" "386" tmplOpts runOpts
 	} fs {
-		buildDownload src package "darwin" "386" args
+		buildDownloadWithOptions src package "darwin" "386" tmplOpts runOpts
+	}
+}
+
+# Build a go binary for all known platforms in parallel and download
+# the binary to a local ./build directory.
+#
+# @param src a filesystem containing go source files.
+# @param package a relative path for the package to build.a
+# @return a solve requiest to build and download in parallel
+group buildAll(fs src, string package) {
+	buildAllWithOptions src package option::template{} option::run{}
+}
+
+# Build a go binary for common platforms (windows, linux, darwin) in parallel
+# and download the binary to a local ./build directory.
+#
+# @param src a filesystem containing go source files.
+# @param package a relative path for the package to build.
+# @param tmplOpts template options used for the go build command
+# @param runOpts run options use for the go build command
+# @return a solve requiest to build and download in parallel
+group buildCommonWithOptions(fs src, string package, option::template tmplOpts, option::run runOpts) {
+	parallel group {
+		buildUnixWithOptions src package tmplOpts runOpts
+	} fs {
+		buildDownloadWithOptions src package "windows" "amd64" tmplOpts runOpts
 	}
 }
 
@@ -57,13 +96,24 @@ group buildAll(fs src, string package, variadic option::template args) {
 #
 # @param src a filesystem containing go source files.
 # @param package a relative path for the package to build.
-# @param args optional arguments to templates used for the go build command
 # @return a solve requiest to build and download in parallel
-group buildCommon(fs src, string package, variadic option::template args) {
-	parallel group {
-		buildUnix src package args
-	} fs {
-		buildDownload src package "windows" "amd64" args
+group buildCommon(fs src, string package) {
+	buildCommonWithOptions src package option::template{} option::run{}
+}
+
+# Build a go binary for unix platforms (linux, darwin) in parallel
+# and download the binary to a local ./build directory.
+#
+# @param src a filesystem containing go source files.
+# @param package a relative path for the package to build.
+# @param tmplOpts template options used for the go build command
+# @param runOpts run options use for the go build command
+# @return a solve requiest to build and download in parallel
+group buildUnixWithOptions(fs src, string package, option::template tmplOpts, option::run runOpts) {
+	parallel fs {
+		buildDownloadWithOptions src package "linux" "amd64" tmplOpts runOpts
+ 	} fs {
+		buildDownloadWithOptions src package "darwin" "amd64" tmplOpts runOpts
 	}
 }
 
@@ -72,17 +122,12 @@ group buildCommon(fs src, string package, variadic option::template args) {
 #
 # @param src a filesystem containing go source files.
 # @param package a relative path for the package to build.
-# @param args optional arguments to templates used for the go build command
 # @return a solve requiest to build and download in parallel
-group buildUnix(fs src, string package, variadic option::template args) {
-	parallel fs {
-		buildDownload src package "linux" "amd64" args
- 	} fs {
-		buildDownload src package "darwin" "amd64" args
-	}
+group buildUnix(fs src, string package) {
+	buildUnixWithOptions src package option::template{} option::run{}
 }
 
-string builderImage(variadic option::template args) {
+string builderImage(variadic option::template tmplOpts) {
 	template <<~END
 	{{- if eq .platform "linux" -}}
 		{{- if (or (eq .arch "amd64") (eq .arch "386")) -}}
@@ -103,12 +148,12 @@ string builderImage(variadic option::template args) {
 	{{- end -}}
 	END with option {
 		stringField "base" "docker.elastic.co/beats-dev/golang-crossbuild"
-		defaultArgs
-		args
+		defaultTmplOpts
+		tmplOpts
 	}
 }
 
-option::template defaultArgs() {
+option::template defaultTmplOpts() {
 	stringField "goVersion" "1.14.2"
 	stringField "platform" localOs
 	stringField "arch" localArch
@@ -116,77 +161,147 @@ option::template defaultArgs() {
 	stringField "binaryName" ""
 	stringField "buildDir" "build"
 	stringField "golangciLintVersion" "latest"
-	stringField "cgoEnabled" "1"
 }
 
-string goBuildCommand(string package, variadic option::template args) {
+string goBuildCommand(string package, variadic option::template tmplOpts) {
 	template <<~EOM
-		CGO_ENABLED={{.cgoEnabled}} go build {{.goBuildFlags}} -o /out/{{.binaryName}} {{.package}}
+		go build {{.goBuildFlags}} -o /out/{{.binaryName}} {{.package}}
 	EOM with option {
-		defaultArgs
-		args
+		defaultTmplOpts
+		tmplOpts
 		stringField "package" package
 	}
 }
 
-fs _runBuild(fs input, string package, variadic option::template args) {
+fs base(variadic option::template tmplOpts) {
 	image string {
-		builderImage args
+		builderImage tmplOpts
 	} with resolve
+	# need to install ssh for git/private go mod deps
+	run "apt-get update && apt-get -y install ssh"
+}
+
+# Builds a go binary.
+#
+# @param input a filesystem containing go source files.
+# @param package a relative path for the package to build.
+# @return a filesystem containing only the built binary.
+fs build(fs input, string package) {
+	buildWithOptions input package option::template{} option::run{}
+}
+
+fs _runBuild(fs input, string package, option::template tmplOpts, option::run runOpts) {
+	base tmplOpts
 	run string {
 		template "/crossbuild --build-cmd {{printf \"%q\" .goBuildCommand}} -p '{{.platform}}/{{.arch}}'" with option {
-			defaultArgs
+			defaultTmplOpts
 			stringField "goBuildCommand" string {
-				goBuildCommand package args
+				goBuildCommand package tmplOpts
 			}
-			args
+			tmplOpts
 		}
 	} with option {
-		commonEnv input
+		runOpts
+		mountCwd input
+		mountCache
 		# Builds a go binary.
 		#
 		# @param input a filesystem containing go source files.
 		# @param package a relative path for the package to build.
-		# @param args optional arguments to templates used for the go build command
+		# @param tmplOpts template options used for the go build command
+		# @param runOpts run options use for the go build command
 		# @return a filesystem containing only the built binary.
-		mount scratch "/out" as build
+		mount scratch "/out" as buildWithOptions
 	}
 }
 
 # Runs Go linter (golangci-lint run) against provided source input.
 #
 # @param input a filesystem containing go source files.
-# @param args optional arguments to templates used for the go build command
+# @param tmplOpts template options used for the lint command
+# @param runOpts run options used for the lint command
 # @return a filesystem containing only the built binary.
-fs lint(fs input, variadic option::template args) {
-	image string {
-		builderImage args
-	} with resolve
+fs lintWithOptions(fs input, option::template tmplOpts, option::run runOpts) {
+	base tmplOpts
 	run string {
 		template "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /go/bin {{.golangciLintVersion}}" with option {
-			defaultArgs
-			args
+			defaultTmplOpts
+			tmplOpts
 		}
 	}
 	run "/go/bin/golangci-lint run" with option {
-		commonEnv input
+		runOpts
+		mountCwd input
+		mountCache
+		env "GOLANGCI_LINT_CACHE" "/golangci-lint-cache"
+		mount scratch "/golangci-lint-cache" with option {
+			cache "golangci-lint" "shared"
+		}
 	}
 }
 
-option::run commonEnv(fs input) {
-	env "GOPATH" "/go"
-	env "CGO_ENABLED" "1"
-	env "GO111MODULE" "on"
-	dir "/go/src" 
-	mount input "/go/src" with readonly
-	mountCache
+# Runs Go linter (golangci-lint run) against provided source input.
+#
+# @param input a filesystem containing go source files.
+# @return a filesystem containing only the built binary.
+fs lint(fs input) {
+	lintWithOptions input option::template{} option::run{}
 }
 
+string gopath() {
+	template <<EOM
+	{{- if .gopath -}}
+		{{- .gopath -}}
+	{{- else -}}
+		/go
+	{{- end -}}
+	EOM with option {
+		stringField "gopath" string {
+			localEnv "GOPATH"
+		}
+	}
+}
+
+string cgoEnabled() {
+		template <<EOM
+			{{- if (not (eq .cgoEnabled "")) -}}
+				{{.cgoEnabled}}
+			{{- else -}}
+				1
+			{{- end -}}
+		EOM with option {
+			stringField "cgoEnabled" string {
+				localEnv "CGO_ENABLED"
+			}
+		}
+	}
+
+# Mount the provided input to the same location as the
+# client current working directory.
+#
+# @param input a filesystem to mount to client cwd
+# @return run options to for for the mount
+option::run mountCwd(fs input) {
+	dir localCwd
+	mount input localCwd with readonly
+}
+
+# Add mounts for common Go related caching.
+#
+# @return run options with cache mounts
 option::run mountCache() {
-	mount scratch "/root/.cache/go-build" with option {
+	env "GOCACHE" "/gocache"
+	mount scratch "/gocache" with option {
 		cache "go-build" "shared"
 	}
-	mount scratch "/go/pkg/mod" with option {
-		cache "go-mod" "shared"
+	mount scratch string {
+		format "%s/pkg" gopath
+	} with option {
+		cache "go-pkg" "shared"
 	}
+	env "CGO_ENABLED" cgoEnabled
+	env "GO111MODULE" string {
+		localEnv "GO111MODULE"
+	}
+	env "GOPATH" gopath
 }
