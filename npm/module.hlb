@@ -1,12 +1,10 @@
 export nodeModules
 
 fs install(fs src) {
-	image "node:alpine" with option {
-		resolve
-	}
+	image "node:alpine"
 	run "npm install" with option {
 		dir "/src"
-		mount src "/src"
-		mount fs { scratch; } "/src/node_modules" as nodeModules
+		mount src "/src" with readonly
+		mount scratch "/src/node_modules" as nodeModules
 	}
 }
