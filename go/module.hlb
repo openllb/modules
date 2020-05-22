@@ -8,6 +8,8 @@ export build
 export buildWithOptions
 export lint
 export lintWithOptions
+export test
+export testWithOptions
 export base
 export mountCwd
 export mountCache
@@ -248,6 +250,34 @@ fs lint(fs input) {
 	lintWithOptions input option::template{} option::run{}
 }
 
+# Runs Go test via gotestsum against provided source
+#
+# @param input a filesystem containing go source and test files.
+# @param tmplOpts template options used for the test command
+# @param runOpts run options used for the test command
+# @return a filesystem after the tests run
+fs testWithOptions(fs input, option::template tmplOpts, option::run runOpts) {
+	base tmplOpts
+	# install gotestsum
+	run "GOBIN=/usr/bin go get -v gotest.tools/gotestsum" with option {
+		mountCache
+	}
+
+	run "gotestsum" with option {
+		runOpts
+		mountCwd input
+		mountCache
+	}
+}
+
+# Runs Go test via gotestsum against provided source
+#
+# @param input a filesystem containing go source and test files.
+# @return a filesystem after the tests run
+fs test(fs input) {
+	testWithOptions input option::template{} option::run{}
+}
+
 string gopath() {
 	template <<EOM
 	{{- if .gopath -}}
@@ -263,18 +293,18 @@ string gopath() {
 }
 
 string cgoEnabled() {
-		template <<EOM
-			{{- if (not (eq .cgoEnabled "")) -}}
-				{{.cgoEnabled}}
-			{{- else -}}
-				1
-			{{- end -}}
-		EOM with option {
-			stringField "cgoEnabled" string {
-				localEnv "CGO_ENABLED"
-			}
+	template <<EOM
+		{{- if (not (eq .cgoEnabled "")) -}}
+			{{.cgoEnabled}}
+		{{- else -}}
+			1
+		{{- end -}}
+	EOM with option {
+		stringField "cgoEnabled" string {
+			localEnv "CGO_ENABLED"
 		}
 	}
+}
 
 # Mount the provided input to the same location as the
 # client current working directory.
