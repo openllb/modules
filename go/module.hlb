@@ -149,7 +149,7 @@ string builderImage(variadic option::template tmplOpts) {
 		{{.base}}:{{.goVersion}}-darwin
 	{{- end -}}
 	END with option {
-		stringField "base" "docker.elastic.co/beats-dev/golang-crossbuild"
+		stringField "base" "openllb/golang-crossbuild"
 		defaultTmplOpts
 		tmplOpts
 	}
