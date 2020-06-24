@@ -278,34 +278,6 @@ fs test(fs input) {
 	testWithOptions input option::template{} option::run{}
 }
 
-string gopath() {
-	template <<EOM
-	{{- if .gopath -}}
-		{{- .gopath -}}
-	{{- else -}}
-		/go
-	{{- end -}}
-	EOM with option {
-		stringField "gopath" string {
-			localEnv "GOPATH"
-		}
-	}
-}
-
-string cgoEnabled() {
-	template <<EOM
-		{{- if (not (eq .cgoEnabled "")) -}}
-			{{.cgoEnabled}}
-		{{- else -}}
-			1
-		{{- end -}}
-	EOM with option {
-		stringField "cgoEnabled" string {
-			localEnv "CGO_ENABLED"
-		}
-	}
-}
-
 # Mount the provided input to the same location as the
 # client current working directory.
 #
@@ -324,14 +296,8 @@ option::run mountCache() {
 	mount scratch "/gocache" with option {
 		cache "go-build" "shared"
 	}
-	mount scratch string {
-		format "%s/pkg" gopath
-	} with option {
+	env "GOPATH" "/go"
+	mount scratch "/go/pkg" with option {
 		cache "go-pkg" "shared"
 	}
-	env "CGO_ENABLED" cgoEnabled
-	env "GO111MODULE" string {
-		localEnv "GO111MODULE"
-	}
-	env "GOPATH" gopath
 }
