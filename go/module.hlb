@@ -129,7 +129,7 @@ group buildUnix(fs src, string package) {
 	buildUnixWithOptions src package option::template{} option::run{}
 }
 
-string builderImage(variadic option::template tmplOpts) {
+string builderImage(option::template tmplOpts) {
 	template <<~END
 	{{- if eq .platform "linux" -}}
 		{{- if (or (eq .arch "amd64") (eq .arch "386")) -}}
@@ -165,7 +165,7 @@ option::template defaultTmplOpts() {
 	stringField "golangciLintVersion" "latest"
 }
 
-string goBuildCommand(string package, variadic option::template tmplOpts) {
+string goBuildCommand(string package, option::template tmplOpts) {
 	template <<~EOM
 		go build {{.goBuildFlags}} -o /out/{{.binaryName}} {{.package}}
 	EOM with option {
@@ -175,7 +175,7 @@ string goBuildCommand(string package, variadic option::template tmplOpts) {
 	}
 }
 
-fs base(variadic option::template tmplOpts) {
+fs base(option::template tmplOpts) {
 	image string {
 		builderImage tmplOpts
 	} with resolve
