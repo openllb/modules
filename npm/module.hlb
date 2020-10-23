@@ -2,7 +2,7 @@ export nodeModules
 
 fs install(fs src) {
 	image "node:alpine"
-	run "npm install" with option {
+	run "npm ci" with option {
 		dir "/src"
 		mount src "/src" with readonly
 		mount scratch "/src/node_modules" as nodeModules
